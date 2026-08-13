@@ -1,0 +1,231 @@
+@import 'tailwindcss';
+
+@plugin '@tailwindcss/typography';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+@source '../**/*.vue';
+
+/*
+ | Self-hosted, not loaded from Google Fonts/Bunny Fonts -- the bank network
+ | this app runs on may block external font requests, so every byte the page
+ | needs has to ship from this server. Tajawal covers both Arabic and Latin
+ | glyphs well (FlexCube codes like STDCUSAC stay legible inline in Arabic
+ | prose), so it's the one face used for both scripts rather than swapping
+ | families per-language.
+ */
+@font-face {
+    font-family: 'Tajawal';
+    src: url('../fonts/tajawal/Tajawal-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Tajawal';
+    src: url('../fonts/tajawal/Tajawal-Medium.ttf') format('truetype');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Tajawal';
+    src: url('../fonts/tajawal/Tajawal-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@theme {
+    /*
+     | Tajawal first for both scripts. ui-sans-serif/system-ui/sans-serif
+     | behind it are a last-resort fallback only (e.g. font-display: swap's
+     | brief flash before Tajawal loads), not an active second typeface.
+     */
+    --font-sans: 'Tajawal', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /*
+     | Andalus Bank brand palette. Tailwind 4 is CSS-first: these custom
+     | properties ARE the config. Each --color-brand-* generates the full
+     | utility set (bg-brand-blue, text-brand-navy, border-brand-gray, ...).
+     */
+    --color-brand-blue: #1d4ed8;
+    --color-brand-navy: #0a1a3a;
+    --color-brand-gold: #daaf37;
+    --color-brand-white: #ffffff;
+
+    /* Borders, dividers, disabled states ONLY -- see brand-muted below. */
+    --color-brand-gray: #8a94a6;
+
+    /*
+     | Secondary TEXT. brand-gray on white is ~3.1:1 contrast, below WCAG AA's
+     | 4.5:1 for normal text -- never use it for body copy. This is brand-navy
+     | flattened to ~70% over white (~6:1), so secondary text stays in the
+     | navy family instead of drifting to an unrelated hue.
+     */
+    --color-brand-muted: #545f75;
+}
+
+@layer components {
+    .prose {
+        --tw-prose-body: var(--color-brand-navy);
+        --tw-prose-headings: var(--color-brand-navy);
+        --tw-prose-bold: var(--color-brand-navy);
+        --tw-prose-links: var(--color-brand-blue);
+        --tw-prose-bullets: var(--color-brand-gray);
+        --tw-prose-counters: var(--color-brand-gray);
+        --tw-prose-quotes: var(--color-brand-navy);
+        --tw-prose-quote-borders: var(--color-brand-gold);
+        --tw-prose-hr: var(--color-brand-gray);
+    }
+}
+
+/*
+ | Direction-sensitive fixes for Tailwind Typography.
+ |
+ | The plugin still emits physical border-left on blockquotes and physical
+ | padding on lists, so an Arabic guide would show its quote bar and bullets
+ | on the wrong side without this.
+ */
+@layer components {
+    [dir='rtl'] .prose blockquote {
+        border-left-width: 0;
+        border-right-width: 0.25rem;
+        border-right-color: var(--color-brand-gold);
+        padding-left: 0;
+        padding-right: 1em;
+    }
+
+    [dir='rtl'] .prose ul,
+    [dir='rtl'] .prose ol {
+        padding-left: 0;
+        padding-right: 1.625em;
+    }
+
+    /*
+     | Latin technical strings inside Arabic prose -- FlexCube function codes,
+     | screen numbers -- must not be reordered by the bidi algorithm. Authors
+     | mark them with <code>, which is isolated here.
+     */
+    [dir='rtl'] .prose code,
+    [dir='rtl'] .prose kbd {
+        unicode-bidi: isolate;
+        direction: ltr;
+    }
+}
+
+/*
+ | Quill's own base stylesheet (quill.core.css, imported by the editor
+ | composable) ships sane defaults for standalone use, but two things are
+ | physical rather than logical -- wrong for an RTL step -- and its
+ | font-family/size compete with Tailwind Typography for the same element.
+ | Selectors here are deliberately compound (.prose.ql-editor rather than a
+ | bare .ql-editor) so they win on specificity regardless of stylesheet order.
+ */
+@layer components {
+    .prose.ql-editor {
+        min-height: 8rem;
+        outline: none;
+        font-family: var(--font-sans);
+        font-size: 0.875rem;
+        line-height: 1.6;
+    }
+
+    /*
+     | Two distinct RTL triggers here, not one: an ancestor with dir="rtl"
+     | (the interface locale, set on <html>) covers surrounding chrome, but
+     | QuillEditor.vue sets `dir` directly on this same element based on the
+     | GUIDE's own language -- independent of interface locale by design
+     | (see Locale docs). Without the self-selector, an English-interface
+     | user editing an Arabic guide got LTR text with no way to fix it.
+     */
+    [dir='rtl'] .prose.ql-editor,
+    .prose.ql-editor[dir='rtl'] {
+        text-align: right;
+    }
+
+    .prose.ql-editor.ql-blank::before {
+        color: var(--color-brand-muted);
+        font-style: normal;
+        inset-inline: 0.9375rem;
+    }
+}
+
+/*
+ | A small, deliberately restrained motion vocabulary -- short durations
+ | (150-350ms) and small offsets (4-8px), reused everywhere rather than
+ | ad-hoc per component, so the whole app moves the same way.
+ */
+@layer utilities {
+    @keyframes fade-in-up {
+        from {
+            opacity: 0;
+            transform: translateY(6px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .animate-fade-in-up {
+        animation: fade-in-up 0.35s ease-out both;
+    }
+
+    .animate-scale-in {
+        animation: scale-in 0.18s ease-out both;
+    }
+
+    /*
+     | prefers-reduced-motion is an accessibility setting, not a suggestion --
+     | collapse every animation/transition to nearly-instant for anyone who
+     | has it on, app-wide, in one place.
+     */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.001ms !important;
+            transition-duration: 0.001ms !important;
+        }
+    }
+}
+
+.toast-enter-active,
+.toast-leave-active {
+    transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
+}
+
+.modal-backdrop-enter-active,
+.modal-backdrop-leave-active {
+    transition: opacity 0.15s ease;
+}
+
+.modal-backdrop-enter-from,
+.modal-backdrop-leave-to {
+    opacity: 0;
+}
