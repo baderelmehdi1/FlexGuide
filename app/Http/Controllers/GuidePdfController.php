@@ -28,43 +28,44 @@ class GuidePdfController extends Controller
 
         $guide->load(['category', 'steps.media']);
 
+        $rtl = $guide->language === 'ar';
+        $mpdf = new Mpdf($this->mpdfConfig($rtl));
         $tempFiles = [];
 
-        $steps = $guide->steps->map(function (Step $step) use (&$tempFiles) {
-            $screenshots = $step->getMedia('screenshots')->map(function ($media) use (&$tempFiles) {
-                $annotations = $media->getCustomProperty('annotations', []);
-                $path = AnnotationFlattener::flatten($media->getPath(), $media->mime_type, $annotations);
+        try {
+            $steps = $guide->steps->map(function (Step $step) use (&$tempFiles, $mpdf) {
+                $screenshots = $step->getMedia('screenshots')->map(function ($media) use (&$tempFiles, $mpdf) {
+                    $annotations = $media->getCustomProperty('annotations', []);
+                    $path = AnnotationFlattener::flatten($media->getPath(), $media->mime_type, $annotations, $mpdf);
 
-                if ($path !== $media->getPath()) {
-                    $tempFiles[] = $path;
-                }
+                    if ($path !== $media->getPath()) {
+                        $tempFiles[] = $path;
+                    }
 
-                return $path;
+                    return $path;
+                });
+
+                return [
+                    'title' => $step->title,
+                    'body' => $step->body,
+                    'warning' => $step->warning,
+                    'screenshots' => $screenshots,
+                ];
             });
 
-            return [
-                'title' => $step->title,
-                'body' => $step->body,
-                'warning' => $step->warning,
-                'screenshots' => $screenshots,
-            ];
-        });
+            $html = view('pdf.guide', [
+                'guide' => $guide,
+                'steps' => $steps,
+                'rtl' => $rtl,
+            ])->render();
 
-        $rtl = $guide->language === 'ar';
+            $mpdf->WriteHTML($html);
 
-        $html = view('pdf.guide', [
-            'guide' => $guide,
-            'steps' => $steps,
-            'rtl' => $rtl,
-        ])->render();
-
-        $mpdf = new Mpdf($this->mpdfConfig($rtl));
-        $mpdf->WriteHTML($html);
-
-        $pdfContent = $mpdf->Output($guide->slug.'.pdf', Destination::STRING_RETURN);
-
-        foreach ($tempFiles as $path) {
-            @unlink($path);
+            $pdfContent = $mpdf->Output($guide->slug.'.pdf', Destination::STRING_RETURN);
+        } finally {
+            foreach ($tempFiles as $path) {
+                @unlink($path);
+            }
         }
 
         return response($pdfContent, 200, [
@@ -76,8 +77,8 @@ class GuidePdfController extends Controller
     /** @return array<string, mixed> */
     private function mpdfConfig(bool $rtl): array
     {
-        $fontDirs = (new ConfigVariables())->getDefaults()['fontDir'];
-        $fontData = (new FontVariables())->getDefaults()['fontdata'];
+        $fontDirs = (new ConfigVariables)->getDefaults()['fontDir'];
+        $fontData = (new FontVariables)->getDefaults()['fontdata'];
 
         return [
             'mode' => 'utf-8',

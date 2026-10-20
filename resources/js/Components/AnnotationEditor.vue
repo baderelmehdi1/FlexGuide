@@ -14,7 +14,9 @@ const emit = defineEmits(['close']);
 
 const { t } = useTranslations();
 const imageEl = ref(null);
-const shapes = ref(structuredClone(props.media.annotations ?? []));
+// Current box/point shapes have scalar fields. Copy each into local state:
+// structuredClone cannot clone Vue proxies, and edits must not mutate props.
+const shapes = ref((props.media.annotations ?? []).map((shape) => ({ ...shape })));
 const tool = ref('box');
 const drawing = ref(null);
 const saving = ref(false);
