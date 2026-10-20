@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\Models\Role as PermissionRole;
 use Tests\TestCase;
 
@@ -47,6 +48,12 @@ class MediaAnnotationTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame($shapes, $media->fresh()->getCustomProperty('annotations'));
+
+        $this->get("/guides/{$guide->slug}/edit")
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Guides/Builder')
+                ->where('steps.0.screenshots.0.annotations', $shapes)
+            );
     }
 
     public function test_annotation_coordinates_out_of_range_are_rejected(): void

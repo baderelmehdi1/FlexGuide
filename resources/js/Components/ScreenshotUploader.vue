@@ -25,8 +25,22 @@ let pond = null;
 const annotating = ref(null);
 const redacting = ref(null);
 
-function csrfToken() {
-    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+function uploadHeaders() {
+    // Login rotates the token without re-rendering Blade's meta tag.
+    // FilePond calls this for each upload, so use the current cookie instead.
+    const cookie = document.cookie.split(';').map((entry) => entry.trim())
+        .find((entry) => entry.startsWith('XSRF-TOKEN='));
+
+    if (!cookie) {
+        return {};
+    }
+
+    try {
+        return { 'X-XSRF-TOKEN': decodeURIComponent(cookie.slice('XSRF-TOKEN='.length)) };
+    } catch {
+        // A missing/invalid cookie must still be rejected by server-side CSRF checks.
+        return {};
+    }
 }
 
 onMounted(() => {
@@ -41,7 +55,7 @@ onMounted(() => {
         server: {
             process: {
                 url: route('steps.screenshots.store', props.stepId),
-                headers: { 'X-CSRF-TOKEN': csrfToken() },
+                headers: uploadHeaders,
                 onload: () => {
                     router.reload({ only: ['steps'], preserveScroll: true });
                     pond.removeFiles();
